@@ -1,58 +1,107 @@
-# python
+```py
+import requests
+import threading
 
-from colorama import Fore
-from colorama import Style
+class main():
+    def __init__(self):
+        self.url = "https://api.minehut.com/server/%s?byName=true"
+        self.worldList = []
+        self.freeServerNames = []
+        self.threadLock = threading.Lock()
+        self.shutdown = False
 
-def main(balance):
-    print(f"\n{Fore.CYAN}You currently have {Fore.YELLOW}${balance} {Fore.CYAN}in your account.{Style.RESET_ALL}\n")
-    deposit_withdraw = input(f"{Fore.CYAN}Would you like to make a {Fore.YELLOW}deposit {Fore.CYAN}or {Fore.YELLOW}withdraw{Fore.CYAN}?{Fore.GREEN}\n")
-    if deposit_withdraw == "deposit":
-        return deposit(balance)
-    elif deposit_withdraw == "withdraw":
-        return withdraw(balance)
-    else:
-        return print(f"{Fore.RED}You must either choose deposit or withdraw.")
+    def runManual(self):
+        while True:
+            server = input("\n-----\nServer Name\n>> ")
+            if self.nameIsTooLong(server):
+                print("\nServer name is too long.")
+                continue
+            elif self.nameIsTooShort(server):
+                print("\nServer name is too short.")
+                continue
+            if self.serverExists(server):
+                print(f'\n"{server}" exists.')
+            else:
+                print(f'\n"{server}" does not exist.')
 
-def deposit(balance):
-    deposit_amount = input(f"{Style.RESET_ALL}{Fore.CYAN}How much money would you like to deposit into your account?{Style.RESET_ALL}\n")
-    if deposit_amount.isdigit():
-        return process_deposit(deposit_amount, balance)
-    else:
-        print(f"\nERROR:\n{Fore.RED}You must enter a valid integer.{Style.RESET_ALL}\n")
+    def runAutomatic(self):
+        threadCount = int(input("Thread count: "))
+        with open("dict.txt", "r") as dict:
+            self.wordList = dict.read().splitlines()
+        for i in range(threadCount):
+            print("Thread %s started." % str(i + 1))
+            thread = threading.Thread(target=self.checkListNameThread)
+            thread.start()
+        while True:
+            if len(self.wordList) == 0:
+                # print("\n-----\nDone.\n-----\n")
+                # print("Free server names:")
+                # for server in self.freeServerNames:
+                #     print(f'  - {server}')
+                stringBuilder = ""
+                stringBuilder = stringBuilder + "\n-----\nDone.\n-----\n"
+                stringBuilder = stringBuilder + "Free server names:\n"
+                for server in self.freeServerNames:
+                    stringBuilder = stringBuilder + f'  - {server}\n'
+                with self.threadLock:
+                    print(stringBuilder)
+                break
 
-def process_deposit(deposit_amount, balance):
-    if int(deposit_amount) <= int(1000000000):
-        print(f"\n{Fore.GREEN}You have successfully deposited {Fore.YELLOW}${deposit_amount} {Fore.GREEN}into your account.{Style.RESET_ALL}\n")
-        balance = int(balance) + int(deposit_amount)
-        # print(f"{Fore.GREEN}You now have $" + str(balance) + " in your account.{Style.RESET_ALL}\n")
-        print(f"{Fore.MAGENTA}Your new balance is now {Fore.YELLOW}$" + str(balance) + f"{Fore.BLUE}.\n")
-        return main(balance)
-    else:
-        print(f"\n{Fore.RED}ERROR:\n{Fore.GREEN}An error has occured, try again with a lower amount (1 billion).{Style.RESET_ALL}\n")
-        return main(balance)
+    def checkListNameThread(self):
+        while True:
+            try:
+                if self.shutdown:
+                    break
+                server = self.wordList.pop()
+                if not self.nameIsTooLong(server) and not self.nameIsTooShort(server):
+                    spacingNeeded = 12 - len(server)
+                    if self.serverExists(server):
+                        with self.threadLock:
+                            print(f'"{server}"{" " * spacingNeeded}exists.')
+                    else:
+                        with self.threadLock:
+                            print(f'"{server}"{" " * spacingNeeded}does not exist.')
+                        self.freeServerNames.append(server)
+            except IndexError:
+                break
 
-def withdraw(balance):
-    withdraw_amount = input(f"{Style.RESET_ALL}{Fore.CYAN}How much money would you like to withdraw from your account?{Style.RESET_ALL}\n")
-    if withdraw_amount.isdigit():
-        return process_withdraw(withdraw_amount, balance)
-    else:
-        print(f"\nERROR:\n{Fore.RED}You must enter a valid integer.{Style.RESET_ALL}\n")
+    def nameIsTooLong(self, server):
+        return len(server) > 12
 
-def process_withdraw(withdraw_amount, balance):
-    if int(balance) <= 0:
-        return print(f"\n{Fore.RED}SYSTEM:\n{Fore.GREEN}You have no money left in your bank account!{Style.RESET_ALL}\n")
-    if int(balance) >= int(withdraw_amount):
-        print(f"\n{Fore.GREEN}You have successfully withdrawn {Fore.YELLOW}${withdraw_amount} {Fore.GREEN}from your account.{Style.RESET_ALL}\n")
-        balance = int(balance) - int(withdraw_amount)
-        # print(f"{Fore.GREEN}You now have $" + str(balance) + " in your account.{Style.RESET_ALL}\n")
-        print(f"{Fore.MAGENTA}Your new balance is now {Fore.YELLOW}$" + str(balance) + f"{Fore.BLUE}.\n")
-        if int(balance) <= 0:
-            return print(f"\n{Fore.RED}SYSTEM:\n{Fore.GREEN}You have no money left in your bank account!{Style.RESET_ALL}\n")
-        else:
-            return main(balance)
-    else:
-        print(f"\n{Fore.RED}ERROR:\n{Fore.GREEN}You do not have enough money in your account to withdraw that amount.{Style.RESET_ALL}\n")
-        return main(balance)
+    def nameIsTooShort(self, server):
+        return len(server) < 4
 
-balance = 1000
-main(balance)
+    def getServer(self, server):
+        return requests.get(self.url % server).json()
+
+    def serverExists(self, server):
+        try:
+            return self.getServer(server)["server"] != None
+        except:
+            return False
+
+    def getServerInfo(self, server):
+        return self.getServer(server)["server"]
+
+
+if __name__ == "__main__":
+    mainClass = main()
+    try:
+        while True:
+            mode = input("Manual OR Auto\n>> ")
+            if mode.lower() == "manual":
+                mainClass.runManual()
+            elif mode.lower() == "auto":
+                mainClass.runAutomatic()
+            else:
+                print("\nMode does not exist.\n")
+    except KeyboardInterrupt:
+        print("\nExiting...")
+        print('Shutting down threads...')
+        mainClass.shutdown = True
+        for thread in threading.enumerate():
+            if thread.is_alive() and thread != threading.current_thread():
+                thread.join()
+        print('Threads shut down.')
+        exit(0)
+```
