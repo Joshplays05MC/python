@@ -1,1 +1,5 @@
-You thought :Z
+import names
+
+run names
+
+print names
